@@ -49,6 +49,22 @@ class TestPlan(unittest.TestCase):
         self.assertEqual(plan.decode_plan(None), [])
         self.assertEqual(plan.decode_plan("not base64!"), [])
 
+    def test_fault_bitmap(self):
+        self.assertEqual(plan.decode_faults(0), [])
+        self.assertEqual(plan.decode_faults(1), ["pet_food_jam"])
+        self.assertEqual(plan.decode_faults(4 | 8), ["pet_food_run_out", "desiccant_exhausted"])
+        self.assertEqual(plan.decode_faults("16"), ["battery_low"])
+        self.assertEqual(plan.decode_faults(None), [])
+
+    def test_runs_on_weekday_mask(self):
+        sunday_only = {"days": 0x01, "time": "18:50", "portions": 1, "enabled": True}
+        self.assertTrue(plan.runs_on(sunday_only, 6))
+        self.assertFalse(plan.runs_on(sunday_only, 0))
+        monday = {**sunday_only, "days": 0x40}
+        self.assertTrue(plan.runs_on(monday, 0))
+        self.assertFalse(plan.runs_on({**monday, "enabled": False}, 0))
+        self.assertEqual(plan.meal_minutes(sunday_only), 18 * 60 + 50)
+
 
 if __name__ == "__main__":
     unittest.main()

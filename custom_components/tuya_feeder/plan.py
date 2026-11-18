@@ -49,3 +49,34 @@ def encode_plan(meals: list[dict[str, Any]]) -> str:
         days = int(meal.get("days", EVERY_DAY)) & 0x7F or EVERY_DAY
         out += bytes([days, int(match.group(1)), int(match.group(2)), portions, 1 if meal.get("enabled", True) else 0])
     return base64.b64encode(bytes(out)).decode()
+
+
+# DP 19 "fault" bitmap, labels in bit order from the device's Tuya thing model.
+# The Tuya cloud status does not include it, so it only arrives in raw reports.
+FAULTS = [
+    "pet_food_jam",
+    "pet_food_shortages",
+    "pet_food_run_out",
+    "desiccant_exhausted",
+    "battery_low",
+    "device_stuck",
+]
+
+
+def decode_faults(value: Any) -> list[str]:
+    """Bitmap (int, or a numeric string) -> fault labels."""
+    try:
+        bits = int(value)
+    except (TypeError, ValueError):
+        return []
+    return [label for i, label in enumerate(FAULTS) if bits >> i & 1]
+
+
+def runs_on(meal: dict[str, Any], weekday: int) -> bool:
+    """weekday: Monday=0 .. Sunday=6 (datetime.weekday())."""
+    return bool(meal.get("enabled")) and bool(int(meal.get("days", EVERY_DAY)) & (0x40 >> weekday))
+
+
+def meal_minutes(meal: dict[str, Any]) -> int:
+    hour, minute = str(meal["time"]).split(":")
+    return int(hour) * 60 + int(minute)

@@ -3,5 +3,12 @@
     "abort": {
       "single_instance_allowed": "Already configured."
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "problem": {
+        "name": "Problem"
+      }
+    }
   }
 }

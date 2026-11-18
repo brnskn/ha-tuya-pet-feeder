@@ -3,5 +3,12 @@
     "abort": {
       "single_instance_allowed": "Zaten kurulu."
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "problem": {
+        "name": "Sorun"
+      }
+    }
   }
 }

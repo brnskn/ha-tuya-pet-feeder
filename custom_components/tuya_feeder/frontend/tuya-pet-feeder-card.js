@@ -1,5 +1,5 @@
 /* Tuya pet feeder card: feed now, next meal, today's feedings and the meal plan. */
-const PF_VERSION = "1.0.0";
+const PF_VERSION = "1.1.0";
 
 const PF_STRINGS = {
   en: {
@@ -44,6 +44,16 @@ const PF_STRINGS = {
     in_h: "in {h} h",
     in_hm: "in {h} h {m} min",
     in_m: "in {m} min",
+    f_pet_food_jam: "Food is jammed",
+    f_pet_food_shortages: "Food is running low",
+    f_pet_food_run_out: "Out of food",
+    f_desiccant_exhausted: "Desiccant needs replacing",
+    f_battery_low: "Backup battery is low",
+    f_device_stuck: "The feeder is stuck",
+    missed: "The {time} meal ({p}) was not dispensed",
+    battery_empty: "Backup battery is empty. Meals won't be dispensed during a power cut.",
+    battery_low: "Backup battery is low ({n}%). Meals won't be dispensed during a power cut.",
+    battery: "Backup battery",
   },
   tr: {
     title: "Mama kabı",
@@ -86,6 +96,16 @@ const PF_STRINGS = {
     in_h: "{h} sa sonra",
     in_hm: "{h} sa {m} dk sonra",
     in_m: "{m} dk sonra",
+    f_pet_food_jam: "Mama sıkıştı",
+    f_pet_food_shortages: "Mama azaldı",
+    f_pet_food_run_out: "Mama bitti",
+    f_desiccant_exhausted: "Kurutucu (nem alıcı) bitti",
+    f_battery_low: "Yedek pil zayıf",
+    f_device_stuck: "Mama kabı takıldı",
+    missed: "{time} öğünü verilmedi ({p})",
+    battery_empty: "Yedek pil bitmiş. Elektrik kesilirse öğünler verilmez.",
+    battery_low: "Yedek pil zayıf (%{n}). Elektrik kesilirse öğünler verilmez.",
+    battery: "Yedek pil",
   },
 };
 
@@ -120,7 +140,8 @@ class TuyaPetFeederCard extends HTMLElement {
     this._hass = hass;
     if (!this._root) this._setup();
     const e = this._feeder?.entities || {};
-    const sig = ["feed_state", "feed_report", "battery", "manual_feed"].map((k) => hass.states[e[k]]?.state).join("|");
+    const prob = hass.states[e.problem];
+    const sig = [...["feed_state", "feed_report", "battery", "manual_feed"].map((k) => hass.states[e[k]]?.state), JSON.stringify(prob?.attributes?.problems || []), prob?.attributes?.missed_meal?.at || ""].join("|");
     if (sig !== this._sig) {
       const feedChanged = this._sig && this._sig.split("|")[0] !== sig.split("|")[0];
       this._sig = sig;
@@ -257,7 +278,7 @@ class TuyaPetFeederCard extends HTMLElement {
       return;
     }
     if (!this._feeder) return;
-    const parts = [this._renderHead(), this._renderHero(), this._renderFeedNow()];
+    const parts = [this._renderHead(), this._renderAlerts(), this._renderHero(), this._renderFeedNow()];
     if (!this._config.compact) parts.push(this._renderTimeline(), this._renderPlan(), this._renderWeek());
     this._root.innerHTML = parts.join("");
   }
@@ -272,14 +293,27 @@ class TuyaPetFeederCard extends HTMLElement {
         : { t: this._t("ready"), i: "mdi:check-circle-outline", c: "ok" };
     const bat = parseFloat(this._st("battery")?.state);
     const battery =
-      isFinite(bat) && bat > 0
-        ? `<span class="bat ${bat <= 20 ? "low" : ""}"><ha-icon icon="mdi:battery${bat >= 95 ? "" : `-${Math.max(10, Math.round(bat / 10) * 10)}`}"></ha-icon>${Math.round(bat)}%</span>`
+      isFinite(bat)
+        ? `<span class="bat ${bat <= 20 ? "low" : ""}" title="${this._t("battery")}"><ha-icon icon="mdi:battery${bat >= 95 ? "" : bat < 5 ? "-outline" : `-${Math.max(10, Math.round(bat / 10) * 10)}`}"></ha-icon>${Math.round(bat)}%</span>`
         : "";
     const title = this._config.title || this._feeder.name || this._t("title");
     return `<div class="head">
       <div class="title"><ha-icon icon="mdi:bowl-mix"></ha-icon><span>${pfEsc(title)}</span></div>
       <div class="head-r">${battery}<div class="status ${st.c}"><ha-icon icon="${st.i}"></ha-icon><span>${st.t}</span></div></div>
     </div>`;
+  }
+
+  _renderAlerts() {
+    const attrs = this._st("problem")?.attributes || {};
+    const faults = attrs.faults || this._feeder.faults || [];
+    const missed = attrs.missed_meal !== undefined ? attrs.missed_meal : this._feeder.missed;
+    const out = faults.map((f) => ({ c: "bad", i: f === "desiccant_exhausted" ? "mdi:water-off" : f === "battery_low" ? "mdi:battery-alert" : "mdi:alert-circle", t: this._t(`f_${f}`) }));
+    if (missed) out.push({ c: "bad", i: "mdi:food-off", t: this._t("missed", { time: missed.time, p: this._p(missed.portions) }) });
+    const bat = parseFloat(this._st("battery")?.state);
+    if (isFinite(bat) && bat <= 20 && !faults.includes("battery_low"))
+      out.push({ c: "warn", i: bat < 5 ? "mdi:battery-off-outline" : "mdi:battery-low", t: bat < 5 ? this._t("battery_empty") : this._t("battery_low", { n: Math.round(bat) }) });
+    if (!out.length) return "";
+    return `<div class="alerts">${out.map((a) => `<div class="alert ${a.c}"><ha-icon icon="${a.i}"></ha-icon><span>${pfEsc(a.t)}</span></div>`).join("")}</div>`;
   }
 
   _renderHero() {
@@ -492,6 +526,10 @@ button:disabled { opacity: .4; cursor: default; }
 .status.busy { color: #d08a1f; background: color-mix(in srgb, #e9a23b 18%, transparent); animation: pfpulse 1.4s ease-in-out infinite; }
 .status.bad { color: #e5484d; background: color-mix(in srgb, #e5484d 14%, transparent); }
 @keyframes pfpulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, #e9a23b 12%, transparent); } }
+.alerts { display: grid; gap: 6px; margin: 0 0 12px; }
+.alert { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; font-size: .86em; line-height: 1.3; color: #e5484d; background: color-mix(in srgb, #e5484d 12%, transparent); }
+.alert.warn { color: #c47d12; background: color-mix(in srgb, #e9a23b 15%, transparent); }
+.alert ha-icon { --mdc-icon-size: 18px; flex: none; }
 .bat { display: inline-flex; align-items: center; gap: 2px; font-size: .8em; color: var(--secondary-text-color); } .bat ha-icon { --mdc-icon-size: 16px; } .bat.low { color: #e5484d; }
 .hero { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: var(--pf-r); background: linear-gradient(135deg, color-mix(in srgb, var(--mk) 18%, transparent), var(--pf-soft)); }
 .hero-main .big { font-size: 2.1em; font-weight: 700; line-height: 1.1; margin: 2px 0; }

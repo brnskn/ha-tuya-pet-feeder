@@ -16,6 +16,6 @@
   "iot_class": "cloud_push",
   "requirements": [],
   "single_config_entry": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "issue_tracker": "https://github.com/brnskn/ha-tuya-pet-feeder/issues"
 }
