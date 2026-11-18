@@ -1,0 +1,6 @@
+{
+  "name": "Tuya Pet Feeder",
+  "domains": ["tuya_feeder"],
+  "homeassistant": "2026.11.0",
+  "render_readme": true
+}

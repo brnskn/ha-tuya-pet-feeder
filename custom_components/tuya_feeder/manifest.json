@@ -1,0 +1,21 @@
+{
+  "domain": "tuya_feeder",
+  "name": "Tuya Pet Feeder",
+  "codeowners": [
+    "@brnskn"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "tuya",
+    "http",
+    "frontend",
+    "websocket_api"
+  ],
+  "documentation": "https://github.com/brnskn/ha-tuya-pet-feeder",
+  "integration_type": "service",
+  "iot_class": "cloud_push",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0",
+  "issue_tracker": "https://github.com/brnskn/ha-tuya-pet-feeder/issues"
+}
