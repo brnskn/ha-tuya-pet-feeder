@@ -143,7 +143,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # This integration owns no devices. Drop any it created by mistake (early 1.1 builds).
     devices = dr.async_get(hass)
     for device in dr.async_entries_for_config_entry(devices, entry.entry_id):
-        devices.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
+        devices.async_remove_device(device.id)
     monitors: dict[str, FeederMonitor] = hass.data[DOMAIN]["monitors"]
     for _, dev_id, device in _feeders(hass):
         monitor = FeederMonitor(hass, dev_id, lambda d=device: getattr(d, "status", {}) or {})
